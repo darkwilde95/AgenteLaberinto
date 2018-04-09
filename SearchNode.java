@@ -1,4 +1,4 @@
-package UNfail;
+package unalcol.agents.UNfail;
 
 /**
  *

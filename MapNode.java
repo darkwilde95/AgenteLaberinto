@@ -11,13 +11,12 @@ public class MapNode{
     public long key;
     public boolean[] valid;
 
-    public MapNode(long key, boolean[] perceptions) {  //Pendiente para percepciones
+    public MapNode(long key, boolean[] perceptions){
         this.key = key;
         this.children = new long[4];
         this.valid = new boolean[4];
         int[] s = Space.decode(key);
         
-        //Validar cuando no tenga algun hijo
         this.valid[Direction.N] = !perceptions[Direction.N];  // up
         this.valid[Direction.E] = !perceptions[Direction.E];  // right
         this.valid[Direction.S] = !perceptions[Direction.S];  // down
@@ -27,7 +26,5 @@ public class MapNode{
         this.children[Direction.E] = Space.encode(s[0]+1, s[1]);
         this.children[Direction.S] = Space.encode(s[0], s[1]-1);
         this.children[Direction.W] = Space.encode(s[0]-1, s[1]);
-        
-        
     }    
 }

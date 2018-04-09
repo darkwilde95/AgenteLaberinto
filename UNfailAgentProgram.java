@@ -3,6 +3,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.Stack;
 
 import javax.swing.text.AbstractDocument.LeafElement;
 
@@ -12,22 +13,17 @@ import unalcol.agents.*;
 public class UNfailAgentProgram implements AgentProgram {
 		
 	private int direction;
-	private long current, last; 
-	private HashMap<Long, MapNode> map;
+	private long current, next; 
 	private Queue<Action> actions;
-	//Test
-	
+	private Stack<Long> toExplore;
+	private HashMap<Long, MapNode> map;
 	
 	public UNfailAgentProgram() {
-		this.map = new HashMap();
-		this.actions = new LinkedList();
 		this.direction = 0;
+		this.map = new HashMap();
+		this.next = this.current;
+		this.actions = new LinkedList();
 		this.current = Space.encode(0, 0);
-		this.last = this.current;
-		//this.actions.add(new Action("no-op"));
-		//Test
-		System.out.println("Soy UNfail");
-		
 	}
 
 	public void printPerceptions(Percept p){
@@ -49,11 +45,10 @@ public class UNfailAgentProgram implements AgentProgram {
 		//System.out.println("___________________________________________________");
 	}
 	
-	
 	public boolean[] absolutePerceptions(boolean[] relative){
 		boolean[] absolute = new boolean[4];
 		
-		switch(direction){
+		switch(this.direction){
 			case Direction.N:
 				absolute = relative;
 			break;
@@ -66,14 +61,14 @@ public class UNfailAgentProgram implements AgentProgram {
 			case Direction.W:
 				absolute[Direction.N] = relative[Direction.E];
 				absolute[Direction.S] = relative[Direction.W];
-				absolute[Direction.W] = relative[Direction.S];
-				absolute[Direction.E] = relative[Direction.N];
+				absolute[Direction.W] = relative[Direction.N];
+				absolute[Direction.E] = relative[Direction.S];
 			break;
 			case Direction.E:
 				absolute[Direction.N] = relative[Direction.W];
 				absolute[Direction.S] = relative[Direction.E];
-				absolute[Direction.W] = relative[Direction.N];
-				absolute[Direction.E] = relative[Direction.S];				
+				absolute[Direction.W] = relative[Direction.S];
+				absolute[Direction.E] = relative[Direction.N];				
 			break;
 		}
 		
@@ -90,14 +85,16 @@ public class UNfailAgentProgram implements AgentProgram {
 		relative[Direction.E] = (Boolean) p.getAttribute("right");
 		
 		MapNode newSpace = new MapNode(this.current, absolutePerceptions(relative));
-		this.map.put(this.current, newSpace);
-//		this.last = this.current;			
-				
+		this.map.put(this.current, newSpace);				
 	}
 	
 	public void scheduleActions(int destDirection){
 		
 		int rotation = (destDirection - this.direction) % 4;
+		if(rotation < 0){
+			rotation += 4;
+		}
+		System.out.println("No de rotaciones para hacer: " + rotation);
 		for(int i = 0; i < rotation; i++){
 			this.actions.add(new Action("rotate"));
 		}
@@ -108,16 +105,20 @@ public class UNfailAgentProgram implements AgentProgram {
 	}
 	
 	public void exploreActions(){
-		MapNode currentSpace = this.map.get(this.current);	
+		MapNode currentSpace = this.map.get(this.current);
 		
 		if(currentSpace.valid[Direction.N] && !this.map.containsKey(currentSpace.children[Direction.N])){
 			scheduleActions(Direction.N);
-		}else if(currentSpace.valid[Direction.E] && !this.map.containsKey(currentSpace.children[Direction.E])){ 
+			
+		}else if(currentSpace.valid[Direction.E] && !this.map.containsKey(currentSpace.children[Direction.E])){
 			scheduleActions(Direction.E);
-		}else if(currentSpace.valid[Direction.S] && !this.map.containsKey(currentSpace.children[Direction.S])){ 
+			
+		}else if(currentSpace.valid[Direction.S] && !this.map.containsKey(currentSpace.children[Direction.S])){
 			scheduleActions(Direction.S);
-		}else if(currentSpace.valid[Direction.W] && !this.map.containsKey(currentSpace.children[Direction.W])){ 
+			
+		}else if(currentSpace.valid[Direction.W] && !this.map.containsKey(currentSpace.children[Direction.W])){
 			scheduleActions(Direction.W);
+			
 		}else{
 			//Tengo que devolverme
 		}		
@@ -128,29 +129,33 @@ public class UNfailAgentProgram implements AgentProgram {
 		
 	}
 	
-	
 	@Override
 	public Action compute(Percept p) {
-		//printPerceptions(p);
-		if (this.map.isEmpty()){
+		
+		MapNode aux = null;	
+		
+		this.current = this.next;
+		if(!this.map.containsKey(this.current)){
 			drawMap(p);
-			System.out.println("Soy el primerito");
 		}
 		
-		exploreActions();
+		if(this.actions.isEmpty()){
+			exploreActions();
+		}
 		
 		Action action = (this.actions.isEmpty()) ? new Action("no_op") : this.actions.poll();
 		
 		switch(action.getCode()){
+		
 			case "advance":
-				this.last = this.current;
-				this.current = this.map.get(last).children[this.direction];
-				if (this.current != this.last){	
-					drawMap(p);
-				}				
+				aux = this.map.get(this.current);
+				this.next = aux.children[this.direction];		
 				System.out.println("voy a avanzar");
 			break;
+			
+			
 			case "rotate":
+				this.next = this.current;
 				this.direction++;
 				this.direction %= 4;
 				System.out.println("voy a rotar" + this.direction);
@@ -158,14 +163,6 @@ public class UNfailAgentProgram implements AgentProgram {
 				System.out.println(action.getCode());
 			break;
 		}
-		int[] lala;
-		lala = Space.decode(this.current);
-		System.out.println("current " + lala[0] + " " + lala[1]);
-		System.out.println("last " + lala[0] + " " + lala[1]);
-		System.out.println("Desencolado");
-		printQueue();
-		System.out.println(this.map.size());
-		System.out.println("___________________________________________________");
 	
 		return action;
 		
@@ -173,7 +170,7 @@ public class UNfailAgentProgram implements AgentProgram {
 	
 	public void printQueue(){
 		StringBuilder sb = new StringBuilder();
-		sb.append("[");
+		sb.append("[  ");
 		for (Iterator iterator = actions.iterator(); iterator.hasNext();) {
 			Action action = (Action) iterator.next();
 			sb.append(action.getCode() + ", ");
@@ -187,7 +184,9 @@ public class UNfailAgentProgram implements AgentProgram {
 		// TODO Auto-generated method stub
 		this.actions.clear();
 		this.map.clear();
-		
+		this.current = 0;
+		this.next = 0;
+		this.direction = 0;
 	}
 	
 	public boolean goalAchieved( Percept p ){
