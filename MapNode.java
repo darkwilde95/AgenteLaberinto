@@ -6,20 +6,28 @@ package unalcol.agents.UNfail;
  */
 public class MapNode{
     
-    public Long[] children;
+    public long[] children;
     public Space space;  //Pendiente por configurar
-    public Long key;
+    public long key;
+    public boolean[] valid;
 
-    public MapNode(Long key, boolean[] perceptions) {  //Pendiente para percepciones
+    public MapNode(long key, boolean[] perceptions) {  //Pendiente para percepciones
         this.key = key;
-        this.children = new Long[4];
+        this.children = new long[4];
+        this.valid = new boolean[4];
         int[] s = Space.decode(key);
-       
+        
         //Validar cuando no tenga algun hijo
-        this.children[Direction.N] = (!perceptions[Direction.N]) ? Space.encode(s[0], s[1]+1) : null;  // up
-        this.children[Direction.E] = (!perceptions[Direction.E]) ? Space.encode(s[0]+1, s[1]) : null;  // right
-        this.children[Direction.S] = (!perceptions[Direction.S]) ? Space.encode(s[0], s[1]-1) : null;  // down
-        this.children[Direction.W] = (!perceptions[Direction.W]) ? Space.encode(s[0]-1, s[1]) : null;  // left
+        this.valid[Direction.N] = !perceptions[Direction.N];  // up
+        this.valid[Direction.E] = !perceptions[Direction.E];  // right
+        this.valid[Direction.S] = !perceptions[Direction.S];  // down
+        this.valid[Direction.W] = !perceptions[Direction.W];  // left
+        
+        this.children[Direction.N] = Space.encode(s[0], s[1]+1);
+        this.children[Direction.E] = Space.encode(s[0]+1, s[1]);
+        this.children[Direction.S] = Space.encode(s[0], s[1]-1);
+        this.children[Direction.W] = Space.encode(s[0]-1, s[1]);
+        
         
     }    
 }

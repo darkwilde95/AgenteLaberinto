@@ -1,5 +1,6 @@
 package unalcol.agents.UNfail;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Queue;
 
@@ -11,9 +12,10 @@ import unalcol.agents.*;
 public class UNfailAgentProgram implements AgentProgram {
 		
 	private int direction;
-	private Long current, last; 
+	private long current, last; 
 	private HashMap<Long, MapNode> map;
 	private Queue<Action> actions;
+	//Test
 	
 	
 	public UNfailAgentProgram() {
@@ -21,8 +23,9 @@ public class UNfailAgentProgram implements AgentProgram {
 		this.actions = new LinkedList();
 		this.direction = 0;
 		this.current = Space.encode(0, 0);
-		this.last = null;
-		this.actions.add(new Action("no-op"));
+		this.last = this.current;
+		//this.actions.add(new Action("no-op"));
+		//Test
 		System.out.println("Soy UNfail");
 		
 	}
@@ -79,7 +82,6 @@ public class UNfailAgentProgram implements AgentProgram {
 	}
 	
 	public void drawMap(Percept p){
-	
 		boolean[] relative = new boolean[4];
 		
 		relative[Direction.N] = (Boolean) p.getAttribute("front");
@@ -98,23 +100,23 @@ public class UNfailAgentProgram implements AgentProgram {
 		int rotation = (destDirection - this.direction) % 4;
 		for(int i = 0; i < rotation; i++){
 			this.actions.add(new Action("rotate"));
-			this.direction++;
 		}
-		this.direction %= 4;
-		this.actions.add(new Action("advance"));		
+		this.actions.add(new Action("advance"));
+		//test
+		System.out.println("Encolando ");
+		printQueue();
 	}
 	
 	public void exploreActions(){
-		MapNode currentSpace = this.map.get(this.current);
-		Long aux = null;		
+		MapNode currentSpace = this.map.get(this.current);	
 		
-		if((aux = currentSpace.children[Direction.N]) != null && !this.map.containsKey(aux)){
+		if(currentSpace.valid[Direction.N] && !this.map.containsKey(currentSpace.children[Direction.N])){
 			scheduleActions(Direction.N);
-		}else if((aux = currentSpace.children[Direction.E]) != null && !this.map.containsKey(aux)){ 
+		}else if(currentSpace.valid[Direction.E] && !this.map.containsKey(currentSpace.children[Direction.E])){ 
 			scheduleActions(Direction.E);
-		}else if((aux = currentSpace.children[Direction.S]) != null && !this.map.containsKey(aux)){ 
+		}else if(currentSpace.valid[Direction.S] && !this.map.containsKey(currentSpace.children[Direction.S])){ 
 			scheduleActions(Direction.S);
-		}else if((aux = currentSpace.children[Direction.W]) != null && !this.map.containsKey(aux)){ 
+		}else if(currentSpace.valid[Direction.W] && !this.map.containsKey(currentSpace.children[Direction.W])){ 
 			scheduleActions(Direction.W);
 		}else{
 			//Tengo que devolverme
@@ -129,46 +131,55 @@ public class UNfailAgentProgram implements AgentProgram {
 	
 	@Override
 	public Action compute(Percept p) {
-		printPerceptions(p);
-		if (!this.current.equals(this.last)){
+		//printPerceptions(p);
+		if (this.map.isEmpty()){
 			drawMap(p);
+			System.out.println("Soy el primerito");
 		}
+		
 		exploreActions();
 		
 		Action action = (this.actions.isEmpty()) ? new Action("no_op") : this.actions.poll();
 		
 		switch(action.getCode()){
 			case "advance":
-			
 				this.last = this.current;
-				int[] coords = Space.decode(this.last); 
-				
-				switch(this.direction){
-					case Direction.N:
-						this.current = Space.encode(coords[0], coords[1] + 1 );
-					break;
-					case Direction.E:
-						this.current = Space.encode(coords[0] + 1, coords[1]);
-					break;
-					case Direction.S:
-						this.current = Space.encode(coords[0], coords[1] - 1);
-					break;
-					case Direction.W:
-						this.current = Space.encode(coords[0] - 1, coords[1]);
-					break;
-				}
+				this.current = this.map.get(last).children[this.direction];
+				if (this.current != this.last){	
+					drawMap(p);
+				}				
 				System.out.println("voy a avanzar");
 			break;
-			
+			case "rotate":
+				this.direction++;
+				this.direction %= 4;
+				System.out.println("voy a rotar" + this.direction);
 			default:
 				System.out.println(action.getCode());
 			break;
 		}
+		int[] lala;
+		lala = Space.decode(this.current);
+		System.out.println("current " + lala[0] + " " + lala[1]);
+		System.out.println("last " + lala[0] + " " + lala[1]);
+		System.out.println("Desencolado");
+		printQueue();
 		System.out.println(this.map.size());
 		System.out.println("___________________________________________________");
 	
 		return action;
 		
+	}
+	
+	public void printQueue(){
+		StringBuilder sb = new StringBuilder();
+		sb.append("[");
+		for (Iterator iterator = actions.iterator(); iterator.hasNext();) {
+			Action action = (Action) iterator.next();
+			sb.append(action.getCode() + ", ");
+		}
+		sb.setCharAt(sb.length()-1, ']');
+		System.out.println(sb);		
 	}
 
 	@Override 
