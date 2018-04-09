@@ -123,102 +123,74 @@ public class UNfailAgentProgram implements AgentProgram {
 		MapNode auxSpace = null;
 		Stack<Long> path = null;
 		long auxKeyCurrent = 0, auxKeyNext = 0;
-		int auxDirection = 0;
+		int auxDirection = 0, k = 0;
 		boolean flag = false;
 		
-		if(currentSpace.valid[Direction.N] && !this.map.containsKey(currentSpace.children[Direction.N])){
+		for (int i = 0; i < 4; i++) {
+			auxDirection = (this.direction+i) % 4;
 			
-			scheduleActions(Direction.N);
-			for(int i = 1; i <= 3; i++){
-				if(currentSpace.valid[i] && !this.map.containsKey(currentSpace.children[i])){
-					if(!this.toExplore.contains(this.current)){
-						this.toExplore.push(this.current);
-						break;
-					}
-				}
-			}
-						
-		}else if(currentSpace.valid[Direction.E] && !this.map.containsKey(currentSpace.children[Direction.E])){
-			
-			scheduleActions(Direction.E);
-			for(int i = 2; i <= 3; i++){
-				if(currentSpace.valid[i] && !this.map.containsKey(currentSpace.children[i])){
-					if(!this.toExplore.contains(this.current)){
-						this.toExplore.push(this.current);
-						break;
-					}
-				}
-			}
-			
-		}else if(currentSpace.valid[Direction.S] && !this.map.containsKey(currentSpace.children[Direction.S])){
-			
-			scheduleActions(Direction.S);
-			if(currentSpace.valid[Direction.W] && !this.map.containsKey(currentSpace.children[Direction.W])){
-				if(!this.toExplore.contains(this.current)){
-					this.toExplore.push(this.current);
-				}
-			}
-			
-		}else if(currentSpace.valid[Direction.W] && !this.map.containsKey(currentSpace.children[Direction.W])){
-			
-			scheduleActions(Direction.W);
-			
-		}else{
-			
-			if(!this.toExplore.isEmpty()){
-				while(!this.toExplore.isEmpty() && !flag){
-					
-					auxKeyCurrent = this.toExplore.pop();
-					auxSpace = this.map.get(auxKeyCurrent);		
-					
-					for(int i = 0; i < 4; i++){						
-						if(auxSpace.valid[i] && !this.map.containsKey(auxSpace.children[i])){
-							flag = true;
+			if(currentSpace.valid[auxDirection] && !this.map.containsKey(currentSpace.children[auxDirection])){
+				scheduleActions(auxDirection);
+				for(int j = i+1; j < 4; j++){
+					k = (auxDirection+j) % 4;
+					if(currentSpace.valid[k] && !this.map.containsKey(currentSpace.children[k])){
+						if(!this.toExplore.contains(this.current)){
+							this.toExplore.push(this.current);
 							break;
 						}
 					}
 				}
-				
-				if(flag){
-					path = this.search.search(this.current, auxKeyCurrent, this.map);
-					
-					System.out.println("path: ");
-					printStack(path);
-					System.out.println("---------------------------------------------");
-					
-					auxKeyCurrent = path.pop();
-					auxDirection = this.direction;
-					
-					while(!path.isEmpty()){
-						
-						auxKeyNext = path.pop();
-						auxSpace = this.map.get(auxKeyCurrent);
-
-						if(auxKeyNext == auxSpace.children[Direction.N]){
-							auxDirection = this.scheduleActions(Direction.N, auxDirection);
-							
-						}else if(auxKeyNext == auxSpace.children[Direction.E]){
-							auxDirection = this.scheduleActions(Direction.E, auxDirection);
-							
-						}else if(auxKeyNext == auxSpace.children[Direction.S]){
-							auxDirection = this.scheduleActions(Direction.S, auxDirection);
-							
-						}else if(auxKeyNext == auxSpace.children[Direction.W]){
-							auxDirection = this.scheduleActions(Direction.W, auxDirection);
-							
-						}
-						auxKeyCurrent = auxKeyNext;
-					}
-					printQueue();
-					flag = false;
-				}else{
-					System.out.println("Recorrí todo! :3");
-				}
-			}else{
-				System.out.println("Recorrí todo! :3");
+				return ;
 			}
-		}		
-		
+		}
+			
+		if(!this.toExplore.isEmpty()){
+			while(!this.toExplore.isEmpty() && !flag){
+				
+				auxKeyCurrent = this.toExplore.pop();
+				auxSpace = this.map.get(auxKeyCurrent);		
+				
+				for(int i = 0; i < 4; i++){						
+					if(auxSpace.valid[i] && !this.map.containsKey(auxSpace.children[i])){
+						flag = true;
+						break;
+					}
+				}
+			}
+			
+			if(flag){
+				System.out.println("Buscando...");
+				path = this.search.search(this.current, auxKeyCurrent, this.map);				
+				auxKeyCurrent = path.pop();
+				auxDirection = this.direction;
+				
+				while(!path.isEmpty()){
+					
+					auxKeyNext = path.pop();
+					auxSpace = this.map.get(auxKeyCurrent);
+	
+					if(auxKeyNext == auxSpace.children[Direction.N]){
+						auxDirection = this.scheduleActions(Direction.N, auxDirection);
+						
+					}else if(auxKeyNext == auxSpace.children[Direction.E]){
+						auxDirection = this.scheduleActions(Direction.E, auxDirection);
+						
+					}else if(auxKeyNext == auxSpace.children[Direction.S]){
+						auxDirection = this.scheduleActions(Direction.S, auxDirection);
+						
+					}else if(auxKeyNext == auxSpace.children[Direction.W]){
+						auxDirection = this.scheduleActions(Direction.W, auxDirection);
+						
+					}
+					auxKeyCurrent = auxKeyNext;
+				}
+				flag = false;
+			}else{
+				System.out.println("Recorrí todo! (1) :3");
+			}
+		}else{
+			System.out.println("Recorrí todo! (2) :3");
+		}
 	}
 	
 	public void returnActions(){
