@@ -20,15 +20,16 @@ public class AStarSearch {
         this.forSearch = new HashMap();
     }
     
-    public Stack<Long> search(Long orig, Long dest, HashMap<Long, MapNode> original){
+    public Stack<Long> search(long orig, long dest, HashMap<Long, MapNode> original){
         
         this.pq.clear();
         this.path.clear();
         this.forSearch.clear();
         
         int[] destPoint = Space.decode(dest);
-        Long childKey = 0L;
+        long childKey = 0L;
         SearchNode aux = null, auxChild = null;
+        MapNode auxOriginal = null;
 
         //Ingreso el primer node de busqueda al grafo de busqueda
         double h = this.heuristic(orig, dest);
@@ -42,7 +43,7 @@ public class AStarSearch {
             aux = this.pq.poll();
             aux.wasVisited = true;
             
-            if( aux.key.equals(dest) ){
+            if( aux.key == dest ){
                 
                 while(aux != null){
                     this.path.push(aux.key);
@@ -52,9 +53,9 @@ public class AStarSearch {
                 
             }else{
                 for(int i = 0; i < 4; i++) {
-                    childKey = original.get(aux.key).children[i];
-                    if( childKey != null){
-                        
+                	auxOriginal = original.get(aux.key);
+                    if( auxOriginal.valid[i] ){
+                        childKey = auxOriginal.children[i];
                         if( !this.forSearch.containsKey(childKey) ){
                             h = this.heuristic(childKey, dest);
                             auxChild = new SearchNode(aux.key,childKey,h,aux.distance+1);

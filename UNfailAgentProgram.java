@@ -14,6 +14,7 @@ public class UNfailAgentProgram implements AgentProgram {
 		
 	private int direction;
 	private long current, next; 
+	private AStarSearch search;
 	private Queue<Action> actions;
 	private Stack<Long> toExplore;
 	private HashMap<Long, MapNode> map;
@@ -22,7 +23,9 @@ public class UNfailAgentProgram implements AgentProgram {
 		this.direction = 0;
 		this.map = new HashMap();
 		this.next = this.current;
+		this.toExplore = new Stack();
 		this.actions = new LinkedList();
+		this.search = new AStarSearch();
 		this.current = Space.encode(0, 0);
 	}
 
@@ -94,33 +97,126 @@ public class UNfailAgentProgram implements AgentProgram {
 		if(rotation < 0){
 			rotation += 4;
 		}
-		System.out.println("No de rotaciones para hacer: " + rotation);
 		for(int i = 0; i < rotation; i++){
 			this.actions.add(new Action("rotate"));
 		}
 		this.actions.add(new Action("advance"));
-		//test
-		System.out.println("Encolando ");
-		printQueue();
+	}
+	
+	public int scheduleActions(int destDirection, int direction){
+		
+		int rotation = (destDirection - direction) % 4;
+		if(rotation < 0){
+			rotation += 4;
+		}
+		for(int i = 0; i < rotation; i++){
+			this.actions.add(new Action("rotate"));
+		}
+		this.actions.add(new Action("advance"));
+		
+		return (direction + rotation) % 4;
 	}
 	
 	public void exploreActions(){
+				
 		MapNode currentSpace = this.map.get(this.current);
+		MapNode auxSpace = null;
+		Stack<Long> path = null;
+		long auxKeyCurrent = 0, auxKeyNext = 0;
+		int auxDirection = 0;
+		boolean flag = false;
 		
 		if(currentSpace.valid[Direction.N] && !this.map.containsKey(currentSpace.children[Direction.N])){
-			scheduleActions(Direction.N);
 			
+			scheduleActions(Direction.N);
+			for(int i = 1; i <= 3; i++){
+				if(currentSpace.valid[i] && !this.map.containsKey(currentSpace.children[i])){
+					if(!this.toExplore.contains(this.current)){
+						this.toExplore.push(this.current);
+						break;
+					}
+				}
+			}
+						
 		}else if(currentSpace.valid[Direction.E] && !this.map.containsKey(currentSpace.children[Direction.E])){
+			
 			scheduleActions(Direction.E);
+			for(int i = 2; i <= 3; i++){
+				if(currentSpace.valid[i] && !this.map.containsKey(currentSpace.children[i])){
+					if(!this.toExplore.contains(this.current)){
+						this.toExplore.push(this.current);
+						break;
+					}
+				}
+			}
 			
 		}else if(currentSpace.valid[Direction.S] && !this.map.containsKey(currentSpace.children[Direction.S])){
+			
 			scheduleActions(Direction.S);
+			if(currentSpace.valid[Direction.W] && !this.map.containsKey(currentSpace.children[Direction.W])){
+				if(!this.toExplore.contains(this.current)){
+					this.toExplore.push(this.current);
+				}
+			}
 			
 		}else if(currentSpace.valid[Direction.W] && !this.map.containsKey(currentSpace.children[Direction.W])){
+			
 			scheduleActions(Direction.W);
 			
 		}else{
-			//Tengo que devolverme
+			
+			if(!this.toExplore.isEmpty()){
+				while(!this.toExplore.isEmpty() && !flag){
+					
+					auxKeyCurrent = this.toExplore.pop();
+					auxSpace = this.map.get(auxKeyCurrent);		
+					
+					for(int i = 0; i < 4; i++){						
+						if(auxSpace.valid[i] && !this.map.containsKey(auxSpace.children[i])){
+							flag = true;
+							break;
+						}
+					}
+				}
+				
+				if(flag){
+					path = this.search.search(this.current, auxKeyCurrent, this.map);
+					
+					System.out.println("path: ");
+					printStack(path);
+					System.out.println("---------------------------------------------");
+					
+					auxKeyCurrent = path.pop();
+					auxDirection = this.direction;
+					
+					while(!path.isEmpty()){
+						
+						auxKeyNext = path.pop();
+						auxSpace = this.map.get(auxKeyCurrent);
+
+						if(auxKeyNext == auxSpace.children[Direction.N]){
+							auxDirection = this.scheduleActions(Direction.N, auxDirection);
+							
+						}else if(auxKeyNext == auxSpace.children[Direction.E]){
+							auxDirection = this.scheduleActions(Direction.E, auxDirection);
+							
+						}else if(auxKeyNext == auxSpace.children[Direction.S]){
+							auxDirection = this.scheduleActions(Direction.S, auxDirection);
+							
+						}else if(auxKeyNext == auxSpace.children[Direction.W]){
+							auxDirection = this.scheduleActions(Direction.W, auxDirection);
+							
+						}
+						auxKeyCurrent = auxKeyNext;
+					}
+					printQueue();
+					flag = false;
+				}else{
+					System.out.println("Recorrí todo! :3");
+				}
+			}else{
+				System.out.println("Recorrí todo! :3");
+			}
 		}		
 		
 	}
@@ -132,7 +228,7 @@ public class UNfailAgentProgram implements AgentProgram {
 	@Override
 	public Action compute(Percept p) {
 		
-		MapNode aux = null;	
+		MapNode aux = null;
 		
 		this.current = this.next;
 		if(!this.map.containsKey(this.current)){
@@ -150,7 +246,6 @@ public class UNfailAgentProgram implements AgentProgram {
 			case "advance":
 				aux = this.map.get(this.current);
 				this.next = aux.children[this.direction];		
-				System.out.println("voy a avanzar");
 			break;
 			
 			
@@ -158,25 +253,35 @@ public class UNfailAgentProgram implements AgentProgram {
 				this.next = this.current;
 				this.direction++;
 				this.direction %= 4;
-				System.out.println("voy a rotar" + this.direction);
 			default:
-				System.out.println(action.getCode());
 			break;
 		}
-	
+		
 		return action;
 		
 	}
 	
 	public void printQueue(){
 		StringBuilder sb = new StringBuilder();
-		sb.append("[  ");
+		sb.append("[ ");
 		for (Iterator iterator = actions.iterator(); iterator.hasNext();) {
 			Action action = (Action) iterator.next();
 			sb.append(action.getCode() + ", ");
 		}
 		sb.setCharAt(sb.length()-1, ']');
 		System.out.println(sb);		
+	}
+	
+	public void printStack(Stack s){
+		for (Iterator iterator = s.iterator(); iterator.hasNext();) {
+			Long l = (Long) iterator.next();	
+			printKey(l);
+		}
+	}
+	
+	public void printKey(long key){
+		int[] coor = Space.decode(key);
+		System.out.println("(" + coor[0] + ", " + coor[1] + ")");
 	}
 
 	@Override 

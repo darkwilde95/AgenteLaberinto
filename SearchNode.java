@@ -10,10 +10,10 @@ public class SearchNode implements Comparable<SearchNode>{
     public long distance;
     public double w;
     public boolean wasVisited;
-    public Long key;
+    public long key;
     public Long parent;
 
-    public SearchNode(Long parent, Long key, double heuristic, long distance){
+    public SearchNode(Long parent, long key, double heuristic, long distance){
         this.parent = parent;
         this.key = key;
         this.wasVisited = false;
