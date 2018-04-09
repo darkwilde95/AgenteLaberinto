@@ -130,11 +130,16 @@ public class UNfailAgentProgram implements AgentProgram {
 			auxDirection = (this.direction+i) % 4;
 			
 			if(currentSpace.valid[auxDirection] && !this.map.containsKey(currentSpace.children[auxDirection])){
+				
 				scheduleActions(auxDirection);
-				for(int j = i+1; j < 4; j++){
+				
+				for(int j = i; j < 4; j++){
+					
 					k = (auxDirection+j) % 4;
 					if(currentSpace.valid[k] && !this.map.containsKey(currentSpace.children[k])){
+							
 						if(!this.toExplore.contains(this.current)){
+						
 							this.toExplore.push(this.current);
 							break;
 						}
@@ -202,6 +207,11 @@ public class UNfailAgentProgram implements AgentProgram {
 		
 		MapNode aux = null;
 		
+		if(this.goalAchieved(p)){
+			return new Action("no_op");
+			
+		}
+						
 		this.current = this.next;
 		if(!this.map.containsKey(this.current)){
 			drawMap(p);
@@ -210,6 +220,7 @@ public class UNfailAgentProgram implements AgentProgram {
 		if(this.actions.isEmpty()){
 			exploreActions();
 		}
+			
 		
 		Action action = (this.actions.isEmpty()) ? new Action("no_op") : this.actions.poll();
 		
