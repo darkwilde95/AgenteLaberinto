@@ -54,10 +54,10 @@ public class AStarSearch {
             }else{
                 for(int i = 0; i < 4; i++) {
                 	auxOriginal = original.get(aux.key);
-                    if( auxOriginal.valid[i] ){ 
-                    	//^Esta intendando acceder a un nodo que no esta
-                    	//en el mapa original pero si en la busqueda?
+                    if(original.containsKey(auxOriginal.children[i]) && auxOriginal.valid[i]){ 
+                    	
                         childKey = auxOriginal.children[i];
+                          
                         if( !this.forSearch.containsKey(childKey) ){
                             h = this.heuristic(childKey, dest);
                             auxChild = new SearchNode(aux.key,childKey,h,aux.distance+1);
@@ -67,7 +67,8 @@ public class AStarSearch {
                         auxChild = this.forSearch.get(childKey);
                         if( !auxChild.wasVisited ){
                             this.pq.offer(auxChild);
-                        }
+                        }                   	
+                    
                     } 
                 }
             }

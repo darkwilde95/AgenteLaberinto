@@ -1,9 +1,11 @@
 package unalcol.agents.UNfail;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Stack;
+import java.util.concurrent.ArrayBlockingQueue;
 
 import javax.swing.text.AbstractDocument.LeafElement;
 
@@ -12,11 +14,12 @@ import unalcol.agents.*;
 
 public class UNfailAgentProgram implements AgentProgram {
 		
-	private int direction;
+	private int direction, energy;
 	private long current, next; 
 	private AStarSearch search;
-	private Queue<Action> actions;
-	private Stack<Long> toExplore;
+	private LinkedList<Action> actions;
+	private Stack<Long> toExplore; 
+	private ArrayList<Long> foodPoints;
 	private HashMap<Long, MapNode> map;
 	
 	public UNfailAgentProgram() {
@@ -24,9 +27,11 @@ public class UNfailAgentProgram implements AgentProgram {
 		this.map = new HashMap();
 		this.next = this.current;
 		this.toExplore = new Stack();
+		this.foodPoints = new ArrayList();
 		this.actions = new LinkedList();
 		this.search = new AStarSearch();
 		this.current = Space.encode(0, 0);
+		this.energy = 0;
 	}
 
 	public void printPerceptions(Percept p){
@@ -117,12 +122,35 @@ public class UNfailAgentProgram implements AgentProgram {
 		return (direction + rotation) % 4;
 	}
 	
+	public void buildPath(Stack<Long> path){
+		
+		int auxDirection = this.direction;
+		long auxKeyCurrent = path.pop(), auxKeyNext = 0L;
+		MapNode auxSpace = null;		
+		
+		while(!path.isEmpty()){
+			
+			auxKeyNext = path.pop();
+			auxSpace = this.map.get(auxKeyCurrent);
+			
+			for (int i = 0; i < 4; i++) {
+				if(auxKeyNext == auxSpace.children[i]){
+					auxDirection = this.scheduleActions(i, auxDirection);
+					break;
+				}
+			}
+			
+			auxKeyCurrent = auxKeyNext;
+		}
+	}
+	
+	
 	public void exploreActions(){
 				
 		MapNode currentSpace = this.map.get(this.current);
 		MapNode auxSpace = null;
 		Stack<Long> path = null;
-		long auxKeyCurrent = 0, auxKeyNext = 0;
+		long auxKeyCurrent = 0;
 		int auxDirection = 0, k = 0;
 		boolean flag = false;
 		
@@ -164,31 +192,8 @@ public class UNfailAgentProgram implements AgentProgram {
 			}
 			
 			if(flag){
-				System.out.println("Buscando...");
-				path = this.search.search(this.current, auxKeyCurrent, this.map);				
-				auxKeyCurrent = path.pop();
-				auxDirection = this.direction;
-				
-				while(!path.isEmpty()){
-					
-					auxKeyNext = path.pop();
-					auxSpace = this.map.get(auxKeyCurrent);
-	
-					if(auxKeyNext == auxSpace.children[Direction.N]){
-						auxDirection = this.scheduleActions(Direction.N, auxDirection);
-						
-					}else if(auxKeyNext == auxSpace.children[Direction.E]){
-						auxDirection = this.scheduleActions(Direction.E, auxDirection);
-						
-					}else if(auxKeyNext == auxSpace.children[Direction.S]){
-						auxDirection = this.scheduleActions(Direction.S, auxDirection);
-						
-					}else if(auxKeyNext == auxSpace.children[Direction.W]){
-						auxDirection = this.scheduleActions(Direction.W, auxDirection);
-						
-					}
-					auxKeyCurrent = auxKeyNext;
-				}
+				path = this.search.search(this.current, auxKeyCurrent, this.map);
+				this.buildPath(path);
 				flag = false;
 			}else{
 				System.out.println("Recorrí todo! (1) :3");
@@ -198,19 +203,63 @@ public class UNfailAgentProgram implements AgentProgram {
 		}
 	}
 	
-	public void returnActions(){
+	public void stateOfEnergy(){
+		int minPath = Integer.MAX_VALUE;
+		MapNode auxSpace = null;
+		long auxKeyCurrent = 0, auxKeyNext = 0;
+		int auxDirection = 0;
+		Stack<Long> foodPath = null,aux = null;
+	
+		
+		//Calcular mi foodPoint mas cercano teniendo en cuenta cuantos advance necesito para llegar a el;
+		if (!this.foodPoints.isEmpty()){
+			for (Long foodPoint  : this.foodPoints) {
+				System.out.print("current: ");
+				printKey(this.current);
+				System.out.print("foodPoint: ");
+				printKey(foodPoint);
+				aux = this.search.search(this.current, foodPoint, this.map);
+				
+				if (aux.size() < minPath){
+					minPath = aux.size();
+					foodPath = (Stack<Long>) aux.clone();
+				}				
+			}
+			
+			if ((this.energy - minPath) == 0){
+				//Quito mis acciones posiblemente planificadas y planeo las necesatias para volver a el punto
+				//comida
+				this.actions.clear();
+				
+				//Anexar al to explore el nodo de la cabeza FALTAA	
+			
+				this.buildPath(foodPath);
+			}
+		}		
 		
 	}
 	
 	@Override
-	public Action compute(Percept p) {
+	public Action compute(Percept p) {	
 		
 		MapNode aux = null;
+		this.energy = (int) p.getAttribute("energy_level");
 		
 		if(this.goalAchieved(p)){
 			return new Action("no_op");
-			
 		}
+		
+		if((Boolean) p.getAttribute("resource") && !this.foodPoints.contains(this.current)){
+			this.foodPoints.add(this.current);
+			int recharge = (int) Math.ceil((40 - this.energy)/10);
+			while(recharge > 0){
+				this.actions.addFirst(new Action("eat")); // Creo que es mejor una LinkedList
+				printQueue();
+				recharge--;
+			}
+		}
+		
+		this.stateOfEnergy();
 						
 		this.current = this.next;
 		if(!this.map.containsKey(this.current)){
@@ -271,6 +320,8 @@ public class UNfailAgentProgram implements AgentProgram {
 	public void init() {
 		// TODO Auto-generated method stub
 		this.actions.clear();
+		this.toExplore.clear();
+		this.foodPoints.clear();
 		this.map.clear();
 		this.current = 0;
 		this.next = 0;
