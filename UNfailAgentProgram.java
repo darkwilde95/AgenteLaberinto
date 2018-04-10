@@ -9,27 +9,39 @@ import javax.swing.text.AbstractDocument.LeafElement;
 
 import unalcol.agents.*;
 
+//TODO giveWayActions: 294: podemos completar el path sin llamar a la busquedaauxDirection
+//TODO 298: Arreglar el orden de las percepciones
+
 
 public class UNfailAgentProgram implements AgentProgram {
+	
+	private final int HUNGRY = 0;
+	private final int GIVE_WAY = 1;
+	private final int EXPLORING = 2;
+	private final int CHANGING_SPACE = 3;
+	private final int MAX_WAIT = 2;
 		
-	private int direction, currentEnergy, lastEnergy;
+	private int direction, currentEnergy, lastEnergy, status, wait,ID;
 	private long current, next; 
-	private AStarSearch search;
+	private AStarSearch router;
 	private LinkedList<Action> actions;
 	private Stack<Long> toExplore; 
 	private HashSet<Long> foodSpace;
 	private HashMap<Long, MapNode> map;
 	
-	public UNfailAgentProgram() {
+	public UNfailAgentProgram(int ID) {
+		this.ID = ID;
+		this.wait = this.MAX_WAIT;
 		this.direction = 0;
 		this.lastEnergy = 20;
 		this.currentEnergy = 0;
 		this.map = new HashMap();
 		this.next = this.current;
 		this.toExplore = new Stack();
+		this.status = this.EXPLORING;
 		this.foodSpace = new HashSet();
 		this.actions = new LinkedList();
-		this.search = new AStarSearch();
+		this.router = new AStarSearch();
 		this.current = Space.encode(0, 0);		
 	}
 	
@@ -107,6 +119,29 @@ public class UNfailAgentProgram implements AgentProgram {
 	}
 	
 
+	private void buildPath(long orig, long dest){
+		
+		Stack<Long> path = this.router.search(orig, dest, this.map);
+		int auxDirection = this.direction;
+		long auxKeyCurrent = path.pop(), auxKeyNext = 0L;
+		MapNode auxSpace = null;		
+		
+		while(!path.isEmpty()){
+			
+			auxKeyNext = path.pop();
+			auxSpace = this.map.get(auxKeyCurrent);
+			
+			for (int i = 0; i < 4; i++) {
+				if(auxKeyNext == auxSpace.children[i]){
+					auxDirection = this.scheduleActions(i, auxDirection);
+					break;
+				}
+			}
+			
+			auxKeyCurrent = auxKeyNext;
+		}
+	}
+	
 	private void buildPath(Stack<Long> path){
 		
 		int auxDirection = this.direction;
@@ -134,7 +169,6 @@ public class UNfailAgentProgram implements AgentProgram {
 				
 		MapNode currentSpace = this.map.get(this.current);
 		MapNode auxSpace = null;
-		Stack<Long> path = null;
 		long auxKeyCurrent = 0;
 		int auxDirection = 0, k = 0;
 		boolean flag = false;
@@ -165,7 +199,7 @@ public class UNfailAgentProgram implements AgentProgram {
 		if(!this.toExplore.isEmpty()){
 			while(!this.toExplore.isEmpty() && !flag){
 				
-				auxKeyCurrent = this.toExplore.pop();
+				auxKeyCurrent = this.toExplore.peek();
 				auxSpace = this.map.get(auxKeyCurrent);		
 				
 				for(int i = 0; i < 4; i++){						
@@ -174,22 +208,26 @@ public class UNfailAgentProgram implements AgentProgram {
 						break;
 					}
 				}
+				
+				if(!flag){
+					this.toExplore.pop();
+				}
 			}
 			
 			if(flag){
-				path = this.search.search(this.current, auxKeyCurrent, this.map);
-				this.buildPath(path);
+				this.buildPath(this.current, auxKeyCurrent);
+				this.status = this.CHANGING_SPACE;
 				flag = false;
 			}else{
-				System.out.println("Recorrí todo! (1) :3");
+				System.out.println("Recorrí todo! (x) :3");
 			}
 		}else{
-			System.out.println("Recorrí todo! (2) :3");
+			System.out.println("Recorrí todo! (" + this.ID + ") :3");
 		}
 	}
 	
 
-	private void energyStatus(){
+	private void energyActions(){
 		int minPath = Integer.MAX_VALUE;
 		double auxDistance = 0.0;
 		Stack<Long> foodPath = null, aux = null;
@@ -208,7 +246,7 @@ public class UNfailAgentProgram implements AgentProgram {
 			}
 			
 			for (long i : reachables) {
-				aux = this.search.search(this.current, i, this.map);
+				aux = this.router.search(this.current, i, this.map);
 				
 				if (aux.size() < minPath){
 					minPath = aux.size();
@@ -224,9 +262,67 @@ public class UNfailAgentProgram implements AgentProgram {
 				//Anexar al to explore el nodo de la cabeza FALTA
 				this.toExplore.push(this.current);
 				this.buildPath(foodPath);
+				this.status = this.HUNGRY;
 			}
 		}		
 		
+	}
+	
+	private void changeActions(){
+		long auxKey = 0;
+		
+		if(this.toExplore.isEmpty()){
+			this.actions.addFirst(new Action("no_op"));
+		}else{
+			if(this.wait > 0){
+				this.wait--;
+				this.actions.addFirst(new Action("no_op")); 
+			}else{
+				this.actions.clear();
+				this.toExplore.push(this.current);
+				this.status = this.GIVE_WAY;
+			}
+			
+		}
+	}
+	
+	private void giveWayActions(Percept p){
+		
+		MapNode currentSpace = this.map.get(this.current);
+		int auxDirection = 0;
+		Boolean perceptDirection = false;
+		
+		for (int i = 1; i < 4; i++) {
+			auxDirection = (this.direction+i) % 4;
+			if(currentSpace.valid[auxDirection] && !this.map.containsKey(currentSpace.children[auxDirection])){
+				
+				switch(auxDirection){
+					case Direction.N:
+						perceptDirection = (Boolean) p.getAttribute("afront");
+					break;
+					
+					case Direction.S:
+						perceptDirection = (Boolean) p.getAttribute("aback");
+					break;
+						
+					case Direction.E:
+						perceptDirection = (Boolean) p.getAttribute("aright");
+					break;
+						
+					case Direction.W:
+						perceptDirection = (Boolean) p.getAttribute("aleft");
+					break;
+				}
+				
+				if(!perceptDirection){
+					scheduleActions(auxDirection);
+					break;
+				}
+			}
+		}
+		
+		//cuando ya no me puedo mover
+		this.actions.addFirst(new Action("no_op"));
 	}
 	
 	@Override
@@ -236,8 +332,9 @@ public class UNfailAgentProgram implements AgentProgram {
 		int recharge = 0;
 		
 		this.current = this.next;
+		this.currentEnergy = (Integer) p.getAttribute("energy_level");
 		
-		this.currentEnergy = (Integer) p.getAttribute("energy_level");		
+		
 		
 		if(this.goalAchieved(p)){
 			return new Action("no_op");
@@ -268,21 +365,49 @@ public class UNfailAgentProgram implements AgentProgram {
 		}
 		
 		if(this.currentEnergy <= 10){
-			this.energyStatus();	
+			this.energyActions();
 		}
+		
+		if((Boolean) p.getAttribute("afront")){
 			
+			if(this.status == this.HUNGRY){
+				this.actions.addFirst(new Action("no_op"));
+				
+			}else if(this.status == this.GIVE_WAY || this.status == this.EXPLORING){
+				this.changeActions();
+				this.giveWayActions(p);
+				
+			}else if(this.status == this.CHANGING_SPACE){
+				this.changeActions();
+			}
+		}		
+		
 		if(this.actions.isEmpty()){
-			exploreActions();
-		}
 			
+			if(this.status == this.CHANGING_SPACE){
+				this.status = this.EXPLORING;
+				this.toExplore.pop();
+				
+			}else if(this.status == this.HUNGRY || this.status == this.GIVE_WAY){
+				this.buildPath(this.current, this.toExplore.peek());
+				this.status = this.CHANGING_SPACE;
+					
+			}else if(this.status == this.EXPLORING){
+				exploreActions();
+			}
+		}
 		
 		Action action = (this.actions.isEmpty()) ? new Action("no_op") : this.actions.poll();
+		
 		
 		switch(action.getCode()){
 		
 			case "advance":
 				aux = this.map.get(this.current);
-				this.next = aux.children[this.direction];		
+				this.next = aux.children[this.direction];
+				if(this.wait < this.MAX_WAIT){
+					this.wait = this.MAX_WAIT;
+				}
 			break;
 			
 			case "rotate":
@@ -327,6 +452,7 @@ public class UNfailAgentProgram implements AgentProgram {
 	}
 
 	
+
 	@Override 
 	public void init() {
 		// TODO Auto-generated method stub
@@ -339,13 +465,14 @@ public class UNfailAgentProgram implements AgentProgram {
 		this.direction = 0;
 	}
 	
-	
 	private boolean goalAchieved( Percept p ){
 	    return (((Boolean)p.getAttribute("treasure")).booleanValue());
 	}
+	
+	
 
 	public static void main(String[] Args){
-		new UNfailAgentProgram();
+		new UNfailAgentProgram(3);
 	}
 	
 }
