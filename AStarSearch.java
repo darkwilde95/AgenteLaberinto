@@ -22,6 +22,9 @@ public class AStarSearch {
     
     public Stack<Long> search(long orig, long dest, HashMap<Long, MapNode> original){
         
+    	if(orig == dest){
+    		return new Stack();
+    	}
         this.pq.clear();
         this.path.clear();
         this.forSearch.clear();
@@ -57,8 +60,8 @@ public class AStarSearch {
                     if(original.containsKey(auxOriginal.children[i]) && auxOriginal.valid[i]){ 
                     	
                         childKey = auxOriginal.children[i];
-                          
-                        if( !this.forSearch.containsKey(childKey) ){
+                        
+                    	if( !this.forSearch.containsKey(childKey) ){
                             h = this.heuristic(childKey, dest);
                             auxChild = new SearchNode(aux.key,childKey,h,aux.distance+1);
                             this.forSearch.put(childKey, auxChild);
@@ -67,9 +70,8 @@ public class AStarSearch {
                         auxChild = this.forSearch.get(childKey);
                         if( !auxChild.wasVisited ){
                             this.pq.offer(auxChild);
-                        }                   	
-                    
-                    } 
+                        }                     
+                    }
                 }
             }
         }

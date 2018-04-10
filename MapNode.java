@@ -7,7 +7,6 @@ package unalcol.agents.UNfail;
 public class MapNode{
     
     public long[] children;
-    public Space space;  //Pendiente por configurar
     public long key;
     public boolean[] valid;
 

@@ -1,12 +1,10 @@
 package unalcol.agents.UNfail;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Queue;
 import java.util.Stack;
-import java.util.concurrent.ArrayBlockingQueue;
-
 import javax.swing.text.AbstractDocument.LeafElement;
 
 import unalcol.agents.*;
@@ -14,46 +12,29 @@ import unalcol.agents.*;
 
 public class UNfailAgentProgram implements AgentProgram {
 		
-	private int direction, energy;
+	private int direction, currentEnergy, lastEnergy;
 	private long current, next; 
 	private AStarSearch search;
 	private LinkedList<Action> actions;
 	private Stack<Long> toExplore; 
-	private ArrayList<Long> foodPoints;
+	private HashSet<Long> foodSpace;
 	private HashMap<Long, MapNode> map;
 	
 	public UNfailAgentProgram() {
 		this.direction = 0;
+		this.lastEnergy = 20;
+		this.currentEnergy = 0;
 		this.map = new HashMap();
 		this.next = this.current;
 		this.toExplore = new Stack();
-		this.foodPoints = new ArrayList();
+		this.foodSpace = new HashSet();
 		this.actions = new LinkedList();
 		this.search = new AStarSearch();
-		this.current = Space.encode(0, 0);
-		this.energy = 0;
-	}
-
-	public void printPerceptions(Percept p){
-		//  "front", "right", "back", "left", "treasure",
-	    //"resource", "resource-color", "resource-shape", "resource-size", "resource-weight", "resource-type", "energy_level" 
-		System.out.println("front " + p.getAttribute("front"));
-		System.out.println("right " + p.getAttribute("right"));
-		System.out.println("back " + p.getAttribute("back"));
-		System.out.println("left "  + p.getAttribute("left"));
-		System.out.println("treasure " + p.getAttribute("treasure"));
-		System.out.println("resource " + p.getAttribute("resource"));
-		//System.out.println("resource-color " + p.getAttribute("resource-color"));
-		//System.out.println("resource-shape " + p.getAttribute("resource-shape"));
-		//System.out.println("resource-size " + p.getAttribute("resouce-size"));
-		//System.out.println("resource-weight " + p.getAttribute("resource-weight"));
-		//System.out.println("resource-type " + p.getAttribute("resource-type"));
-		//System.out.println("energy_level " + p.getAttribute("energy_level"));
-		//System.out.println(this.map.size());
-		//System.out.println("___________________________________________________");
+		this.current = Space.encode(0, 0);		
 	}
 	
-	public boolean[] absolutePerceptions(boolean[] relative){
+	
+	private boolean[] absolutePerceptions(boolean[] relative){
 		boolean[] absolute = new boolean[4];
 		
 		switch(this.direction){
@@ -84,7 +65,8 @@ public class UNfailAgentProgram implements AgentProgram {
 		
 	}
 	
-	public void drawMap(Percept p){
+
+	private void drawMap(Percept p){
 		boolean[] relative = new boolean[4];
 		
 		relative[Direction.N] = (Boolean) p.getAttribute("front");
@@ -96,7 +78,8 @@ public class UNfailAgentProgram implements AgentProgram {
 		this.map.put(this.current, newSpace);				
 	}
 	
-	public void scheduleActions(int destDirection){
+
+	private void scheduleActions(int destDirection){
 		
 		int rotation = (destDirection - this.direction) % 4;
 		if(rotation < 0){
@@ -108,7 +91,8 @@ public class UNfailAgentProgram implements AgentProgram {
 		this.actions.add(new Action("advance"));
 	}
 	
-	public int scheduleActions(int destDirection, int direction){
+
+	private int scheduleActions(int destDirection, int direction){
 		
 		int rotation = (destDirection - direction) % 4;
 		if(rotation < 0){
@@ -122,7 +106,8 @@ public class UNfailAgentProgram implements AgentProgram {
 		return (direction + rotation) % 4;
 	}
 	
-	public void buildPath(Stack<Long> path){
+
+	private void buildPath(Stack<Long> path){
 		
 		int auxDirection = this.direction;
 		long auxKeyCurrent = path.pop(), auxKeyNext = 0L;
@@ -144,8 +129,8 @@ public class UNfailAgentProgram implements AgentProgram {
 		}
 	}
 	
-	
-	public void exploreActions(){
+
+	private void exploreActions(){
 				
 		MapNode currentSpace = this.map.get(this.current);
 		MapNode auxSpace = null;
@@ -203,36 +188,41 @@ public class UNfailAgentProgram implements AgentProgram {
 		}
 	}
 	
-	public void stateOfEnergy(){
+
+	private void energyStatus(){
 		int minPath = Integer.MAX_VALUE;
-		MapNode auxSpace = null;
-		long auxKeyCurrent = 0, auxKeyNext = 0;
-		int auxDirection = 0;
-		Stack<Long> foodPath = null,aux = null;
+		double auxDistance = 0.0;
+		Stack<Long> foodPath = null, aux = null;
+		LinkedList<Long> reachables = new LinkedList();
+		int[] currCoords = Space.decode(this.current), auxCoords = null;
 	
-		
 		//Calcular mi foodPoint mas cercano teniendo en cuenta cuantos advance necesito para llegar a el;
-		if (!this.foodPoints.isEmpty()){
-			for (Long foodPoint  : this.foodPoints) {
-				System.out.print("current: ");
-				printKey(this.current);
-				System.out.print("foodPoint: ");
-				printKey(foodPoint);
-				aux = this.search.search(this.current, foodPoint, this.map);
+		if (!this.foodSpace.isEmpty()){
+			for (long foodSpace  : this.foodSpace) {
+				
+				auxCoords = Space.decode(foodSpace);
+				auxDistance = Math.pow(auxCoords[0]-currCoords[0], 2)+Math.pow(auxCoords[1]-currCoords[1], 2);		
+				if(Math.sqrt(auxDistance) <= this.currentEnergy){
+					reachables.add(foodSpace);
+				}
+			}
+			
+			for (long i : reachables) {
+				aux = this.search.search(this.current, i, this.map);
 				
 				if (aux.size() < minPath){
 					minPath = aux.size();
 					foodPath = (Stack<Long>) aux.clone();
-				}				
+				}
 			}
 			
-			if ((this.energy - minPath) == 0){
+			if ((this.currentEnergy - minPath) == 0){
 				//Quito mis acciones posiblemente planificadas y planeo las necesatias para volver a el punto
 				//comida
 				this.actions.clear();
 				
-				//Anexar al to explore el nodo de la cabeza FALTAA	
-			
+				//Anexar al to explore el nodo de la cabeza FALTA
+				this.toExplore.push(this.current);
 				this.buildPath(foodPath);
 			}
 		}		
@@ -243,29 +233,44 @@ public class UNfailAgentProgram implements AgentProgram {
 	public Action compute(Percept p) {	
 		
 		MapNode aux = null;
-		this.energy = (int) p.getAttribute("energy_level");
+		int recharge = 0;
+		
+		this.current = this.next;
+		
+		this.currentEnergy = (Integer) p.getAttribute("energy_level");		
 		
 		if(this.goalAchieved(p)){
 			return new Action("no_op");
 		}
 		
-		if((Boolean) p.getAttribute("resource") && !this.foodPoints.contains(this.current)){
-			this.foodPoints.add(this.current);
-			int recharge = (int) Math.ceil((40 - this.energy)/10);
-			while(recharge > 0){
-				this.actions.addFirst(new Action("eat")); // Creo que es mejor una LinkedList
-				printQueue();
+		if((Boolean) p.getAttribute("resource") && this.currentEnergy < 40){
+			
+			this.actions.addFirst(new Action("eat"));
+			
+			//Revisar el nivel de energia para saber si es comida buena o mala
+			if(this.lastEnergy < this.currentEnergy){
+				recharge = (int) Math.ceil((40 - this.currentEnergy)/10);
 				recharge--;
+				while(recharge > 0){
+					this.actions.addFirst(new Action("eat")); 
+					// Creo que toca hacerlo funcionar con comida que indigesta
+					recharge--;
+				}
+				
+				if(!this.foodSpace.contains(this.current)){
+					this.foodSpace.add(this.current);
+				}
 			}
-		}
+		}	
 		
-		this.stateOfEnergy();
-						
-		this.current = this.next;
 		if(!this.map.containsKey(this.current)){
 			drawMap(p);
 		}
 		
+		if(this.currentEnergy <= 10){
+			this.energyStatus();	
+		}
+			
 		if(this.actions.isEmpty()){
 			exploreActions();
 		}
@@ -280,11 +285,16 @@ public class UNfailAgentProgram implements AgentProgram {
 				this.next = aux.children[this.direction];		
 			break;
 			
-			
 			case "rotate":
 				this.next = this.current;
 				this.direction++;
 				this.direction %= 4;
+			break;
+			
+			case "eat":
+				this.next = this.current;
+				this.lastEnergy = this.currentEnergy;
+			break;
 			default:
 			break;
 		}
@@ -316,19 +326,21 @@ public class UNfailAgentProgram implements AgentProgram {
 		System.out.println("(" + coor[0] + ", " + coor[1] + ")");
 	}
 
+	
 	@Override 
 	public void init() {
 		// TODO Auto-generated method stub
 		this.actions.clear();
 		this.toExplore.clear();
-		this.foodPoints.clear();
+		this.foodSpace.clear();
 		this.map.clear();
 		this.current = 0;
 		this.next = 0;
 		this.direction = 0;
 	}
 	
-	public boolean goalAchieved( Percept p ){
+	
+	private boolean goalAchieved( Percept p ){
 	    return (((Boolean)p.getAttribute("treasure")).booleanValue());
 	}
 
