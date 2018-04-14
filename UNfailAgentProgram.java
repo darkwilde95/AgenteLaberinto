@@ -1,5 +1,4 @@
 package unalcol.agents.UNfail;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -9,7 +8,7 @@ import javax.swing.text.AbstractDocument.LeafElement;
 
 import unalcol.agents.*;
 
-//TODO giveWayActions: 294: podemos completar el path sin llamar a la busquedaauxDirection
+//TODO giveWayActions: 294: podemos completar el path sin llamar a la busqueda
 //TODO 298: Arreglar el orden de las percepciones
 
 
@@ -45,7 +44,6 @@ public class UNfailAgentProgram implements AgentProgram {
 		this.current = Space.encode(0, 0);		
 	}
 	
-	
 	private boolean[] absolutePerceptions(boolean[] relative){
 		boolean[] absolute = new boolean[4];
 		
@@ -77,7 +75,6 @@ public class UNfailAgentProgram implements AgentProgram {
 		
 	}
 	
-
 	private void drawMap(Percept p){
 		boolean[] relative = new boolean[4];
 		
@@ -90,7 +87,6 @@ public class UNfailAgentProgram implements AgentProgram {
 		this.map.put(this.current, newSpace);				
 	}
 	
-
 	private void scheduleActions(int destDirection){
 		
 		int rotation = (destDirection - this.direction) % 4;
@@ -103,7 +99,6 @@ public class UNfailAgentProgram implements AgentProgram {
 		this.actions.add(new Action("advance"));
 	}
 	
-
 	private int scheduleActions(int destDirection, int direction){
 		
 		int rotation = (destDirection - direction) % 4;
@@ -118,9 +113,12 @@ public class UNfailAgentProgram implements AgentProgram {
 		return (direction + rotation) % 4;
 	}
 	
-
 	private void buildPath(long orig, long dest){
 		
+		System.out.print(this.ID + ": Estoy en ");
+		printKey(orig);
+		System.out.print(this.ID + ": Quiero ir a ");
+		printKey(dest);
 		Stack<Long> path = this.router.search(orig, dest, this.map);
 		int auxDirection = this.direction;
 		long auxKeyCurrent = path.pop(), auxKeyNext = 0L;
@@ -164,7 +162,6 @@ public class UNfailAgentProgram implements AgentProgram {
 		}
 	}
 	
-
 	private void exploreActions(){
 				
 		MapNode currentSpace = this.map.get(this.current);
@@ -226,7 +223,6 @@ public class UNfailAgentProgram implements AgentProgram {
 		}
 	}
 	
-
 	private void energyActions(){
 		int minPath = Integer.MAX_VALUE;
 		double auxDistance = 0.0;
@@ -255,12 +251,12 @@ public class UNfailAgentProgram implements AgentProgram {
 			}
 			
 			if ((this.currentEnergy - minPath) == 0){
-				//Quito mis acciones posiblemente planificadas y planeo las necesatias para volver a el punto
-				//comida
 				this.actions.clear();
 				
-				//Anexar al to explore el nodo de la cabeza FALTA
-				this.toExplore.push(this.current);
+				if(this.status == this.EXPLORING){
+					this.toExplore.push(this.current);
+					
+				}
 				this.buildPath(foodPath);
 				this.status = this.HUNGRY;
 			}
@@ -270,19 +266,53 @@ public class UNfailAgentProgram implements AgentProgram {
 	
 	private void changeActions(){
 		long auxKey = 0;
+		boolean flag = false;
+		MapNode auxSpace = null;
 		
 		if(this.toExplore.isEmpty()){
-			this.actions.addFirst(new Action("no_op"));
+			this.actions.addFirst(new Action("no_op")); //Tal vez despues miramos
 		}else{
 			if(this.wait > 0){
 				this.wait--;
 				this.actions.addFirst(new Action("no_op")); 
+				System.out.println(this.ID + ": Esperando");
 			}else{
 				this.actions.clear();
-				this.toExplore.push(this.current);
-				this.status = this.GIVE_WAY;
+				System.out.println(this.ID + ": No me dio paso, debo dar yo el paso");
+				System.out.print(this.ID + ": Guardando que debo volver aqui despues");				
+				
+				while(!this.toExplore.isEmpty() && !flag){
+					
+					auxKey = this.toExplore.peek();
+					auxSpace = this.map.get(auxKey);		
+					
+					for(int i = 0; i < 4; i++){						
+						if(auxSpace.valid[i] && !this.map.containsKey(auxSpace.children[i])){
+							flag = true;
+							break;
+						}
+					}
+					
+					if(!flag){
+						this.toExplore.pop();
+					}
+				}
+				
+				if(flag){
+					this.actions.clear();
+					if(this.status == this.EXPLORING){
+						this.toExplore.push(this.current);
+						this.status = this.GIVE_WAY;
+						
+					}else if(this.status == this.CHANGING_SPACE || this.status == this.GIVE_WAY){
+						this.status = this.GIVE_WAY;
+					}
+					
+					this.buildPath(this.current, auxKey);
+					this.status = this.CHANGING_SPACE;
+					flag = false;
+				}
 			}
-			
 		}
 	}
 	
@@ -290,67 +320,90 @@ public class UNfailAgentProgram implements AgentProgram {
 		
 		MapNode currentSpace = this.map.get(this.current);
 		int auxDirection = 0;
-		Boolean perceptDirection = false;
+		boolean[] perception = new boolean[4];
 		
-		for (int i = 1; i < 4; i++) {
+		Boolean aux = (Boolean) p.getAttribute("afront");
+		perception[Direction.N] = (aux == null) ? false : aux;
+		
+		aux = (Boolean) p.getAttribute("aright");
+		perception[Direction.E] = (aux == null) ? false : aux;
+		
+		aux = (Boolean) p.getAttribute("aback");
+		perception[Direction.S] = (aux == null) ? false : aux;
+		
+		aux = (Boolean) p.getAttribute("aleft");
+		perception[Direction.W] = (aux == null) ? false : aux;
+		
+		System.out.println(this.ID + ": afront: " + this.ID + ": " + perception[Direction.N]);
+		System.out.println(this.ID + ": aright: " + this.ID + ": " + perception[Direction.E]);
+		System.out.println(this.ID + ": aback: " + this.ID + ": " + perception[Direction.S]);
+		System.out.println(this.ID + ": aleft: " + this.ID + ": " + perception[Direction.W]);
+		
+		perception = this.absolutePerceptions(perception);
+		
+		for (int i = 0; i < 4; i++) {
 			auxDirection = (this.direction+i) % 4;
-			if(currentSpace.valid[auxDirection] && !this.map.containsKey(currentSpace.children[auxDirection])){
-				
-				switch(auxDirection){
-					case Direction.N:
-						perceptDirection = (Boolean) p.getAttribute("afront");
-					break;
+			if(currentSpace.valid[auxDirection] && this.map.containsKey(currentSpace.children[auxDirection])){
+				System.out.println("Hay camino en la direccion " + auxDirection + ": " + this.ID);
+				if(!perception[auxDirection]){
+					switch(auxDirection){
+						case 0:
+							System.out.println(this.ID + ": Direccion valida para dar permiso N");
+						break;
+						case 1:
+							System.out.println(this.ID + ": Direccion valida para dar permiso E");
+						break;
+						case 2:
+							System.out.println(this.ID + ": Direccion valida para dar permiso S");
+						break;
+						case 3:
+							System.out.println(this.ID + ": Direccion valida para dar permiso W");
+						break;
+					}
 					
-					case Direction.S:
-						perceptDirection = (Boolean) p.getAttribute("aback");
-					break;
-						
-					case Direction.E:
-						perceptDirection = (Boolean) p.getAttribute("aright");
-					break;
-						
-					case Direction.W:
-						perceptDirection = (Boolean) p.getAttribute("aleft");
-					break;
-				}
-				
-				if(!perceptDirection){
 					scheduleActions(auxDirection);
-					break;
+					return;
 				}
 			}
 		}
 		
 		//cuando ya no me puedo mover
+		System.out.println(this.ID + ": No me puedo mover");
 		this.actions.addFirst(new Action("no_op"));
 	}
 	
 	@Override
 	public Action compute(Percept p) {	
 		
-		MapNode aux = null;
 		int recharge = 0;
+		MapNode aux = null;
+		boolean repeat = false;
+		
 		
 		this.current = this.next;
 		this.currentEnergy = (Integer) p.getAttribute("energy_level");
 		
-		
+		if(!this.map.containsKey(this.current)){
+			this.drawMap(p); 
+		}
 		
 		if(this.goalAchieved(p)){
 			return new Action("no_op");
+		}
+		
+		if(this.currentEnergy <= 15 && this.status != this.HUNGRY){
+			this.energyActions();
 		}
 		
 		if((Boolean) p.getAttribute("resource") && this.currentEnergy < 40){
 			
 			this.actions.addFirst(new Action("eat"));
 			
-			//Revisar el nivel de energia para saber si es comida buena o mala
 			if(this.lastEnergy < this.currentEnergy){
 				recharge = (int) Math.ceil((40 - this.currentEnergy)/10);
 				recharge--;
 				while(recharge > 0){
-					this.actions.addFirst(new Action("eat")); 
-					// Creo que toca hacerlo funcionar con comida que indigesta
+					this.actions.addFirst(new Action("eat"));
 					recharge--;
 				}
 				
@@ -358,44 +411,67 @@ public class UNfailAgentProgram implements AgentProgram {
 					this.foodSpace.add(this.current);
 				}
 			}
-		}	
-		
-		if(!this.map.containsKey(this.current)){
-			drawMap(p);
 		}
 		
-		if(this.currentEnergy <= 10){
-			this.energyActions();
-		}
 		
-		if((Boolean) p.getAttribute("afront")){
-			
-			if(this.status == this.HUNGRY){
-				this.actions.addFirst(new Action("no_op"));
+		do{
+			if(this.status == this.EXPLORING){
 				
-			}else if(this.status == this.GIVE_WAY || this.status == this.EXPLORING){
-				this.changeActions();
-				this.giveWayActions(p);
+				repeat = false;
+				
+				if((boolean) p.getAttribute("afront")){
+					this.changeActions();
+				}else{
+					if(this.actions.isEmpty()){
+						this.exploreActions();
+					}
+				}
 				
 			}else if(this.status == this.CHANGING_SPACE){
-				this.changeActions();
-			}
-		}		
-		
-		if(this.actions.isEmpty()){
-			
-			if(this.status == this.CHANGING_SPACE){
-				this.status = this.EXPLORING;
-				this.toExplore.pop();
 				
-			}else if(this.status == this.HUNGRY || this.status == this.GIVE_WAY){
-				this.buildPath(this.current, this.toExplore.peek());
-				this.status = this.CHANGING_SPACE;
-					
-			}else if(this.status == this.EXPLORING){
-				exploreActions();
+				repeat = false;
+				
+				if((boolean) p.getAttribute("afront")){
+					this.changeActions();
+				}else{
+					if(this.actions.isEmpty()){
+						this.status = this.EXPLORING;
+						repeat = true;
+					}
+				}
+				
+				
+			}else if(this.status == this.HUNGRY){
+				
+				repeat = false;
+				
+				if((boolean) p.getAttribute("afront")){
+					this.actions.addFirst(new Action("no_op"));
+				}else{
+					if(this.actions.isEmpty()){
+						
+						if(this.currentEnergy == 40){
+							this.buildPath(this.current, this.toExplore.peek());
+							this.status = this.CHANGING_SPACE;
+						}
+					}
+				}
+				
+			}else if(this.status == this.GIVE_WAY){
+				
+				repeat = false;
+				
+				if((boolean) p.getAttribute("afront")){
+					this.giveWayActions(p);
+				}else{
+					if(this.actions.isEmpty()){
+						this.buildPath(this.current, this.toExplore.peek());
+						this.status = this.CHANGING_SPACE;
+					}
+				}
+				
 			}
-		}
+		}while(repeat);
 		
 		Action action = (this.actions.isEmpty()) ? new Action("no_op") : this.actions.poll();
 		
@@ -412,11 +488,17 @@ public class UNfailAgentProgram implements AgentProgram {
 			
 			case "rotate":
 				this.next = this.current;
+				if(this.wait < this.MAX_WAIT){
+					this.wait = this.MAX_WAIT;
+				}
 				this.direction++;
 				this.direction %= 4;
 			break;
 			
 			case "eat":
+				if(this.wait < this.MAX_WAIT){
+					this.wait = this.MAX_WAIT;
+				}
 				this.next = this.current;
 				this.lastEnergy = this.currentEnergy;
 			break;
@@ -425,7 +507,6 @@ public class UNfailAgentProgram implements AgentProgram {
 		}
 		
 		return action;
-		
 	}
 	
 	public void printQueue(){
