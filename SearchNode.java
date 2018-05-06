@@ -1,4 +1,4 @@
-package unalcol.agents.UNfail;
+package unalcol.agents.examples.labyrinth.multeseo.eater.sis20181.UNfail;
 
 /**
  *
