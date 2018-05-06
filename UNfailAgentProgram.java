@@ -8,8 +8,7 @@ import javax.swing.text.AbstractDocument.LeafElement;
 
 import unalcol.agents.*;
 
-//TODO giveWayActions: 294: podemos completar el path sin llamar a la busqueda
-//TODO 298: Arreglar el orden de las percepciones
+//TODO 470: Arreglar el Empty Stack en toExplore
 
 
 public class UNfailAgentProgram implements AgentProgram {
@@ -21,6 +20,7 @@ public class UNfailAgentProgram implements AgentProgram {
 	private final int MAX_WAIT = 4;
 		
 	private int direction, currentEnergy, lastEnergy, status, wait,ID;
+	private boolean hasEaten;
 	private long current, next; 
 	private AStarSearch router;
 	private LinkedList<Action> actions;
@@ -34,6 +34,7 @@ public class UNfailAgentProgram implements AgentProgram {
 		this.wait = this.MAX_WAIT;
 		this.direction = 0;
 		this.lastEnergy = 20;
+		this.hasEaten = false;
 		this.currentEnergy = 0;
 		this.map = new HashMap();
 		this.next = this.current;
@@ -110,10 +111,6 @@ public class UNfailAgentProgram implements AgentProgram {
 	
 	private void buildPath(long orig, long dest){
 		
-		System.out.print(this.ID + ": Estoy en ");
-		printKey(orig);
-		System.out.print(this.ID + ": Quiero ir a ");
-		printKey(dest);
 		Stack<Long> path = this.router.search(orig, dest, this.map);
 		int auxDirection = this.direction;
 		long auxKeyCurrent = path.pop(), auxKeyNext = 0L;
@@ -277,28 +274,12 @@ public class UNfailAgentProgram implements AgentProgram {
 		for (int i = 1; i < 4; i++) {
 			auxDirection = (this.direction+i) % 4;
 			if(currentSpace.valid[auxDirection] && this.map.containsKey(currentSpace.children[auxDirection])){
-				System.out.println(this.ID + ":Hay camino en la direccion " + auxDirection );
-				switch(auxDirection){
-					case 0:
-						System.out.println(this.ID + ": Direccion valida para dar permiso N");
-					break;
-					case 1:
-						System.out.println(this.ID + ": Direccion valida para dar permiso E");
-					break;
-					case 2:
-						System.out.println(this.ID + ": Direccion valida para dar permiso S");
-					break;
-					case 3:
-						System.out.println(this.ID + ": Direccion valida para dar permiso W");
-					break;
-				}
 				scheduleActions(auxDirection);
 				return;
 			}
 		}
 		
 		// No hay direccion libre para moverse
-		System.out.println(this.ID + ": No me puedo mover");
 		this.actions.addFirst(new Action("no_op"));
 	}
 	
@@ -310,42 +291,45 @@ public class UNfailAgentProgram implements AgentProgram {
 		// Esperar que el otro agente de el paso	
 		if(this.wait > 0){
 			this.wait--;
-			this.actions.addFirst(new Action("no_op")); 
-			System.out.println(this.ID + ": Esperando");
+			this.actions.addFirst(new Action("no_op"));
 			
 		}else {
 			// Si ya esperé lo suficiente
+			this.actions.clear();
 			
 			// Si estaba explorando
 			if(this.status == this.EXPLORING){
 				
-				this.actions.clear();
-				auxKey = this.toExplore.peek();
 				
-				// Evitar elegir el mismo camino en el que esta mirando
-				
-				// Si el ultimo pendiente es el mismo en donde esta ubicado
-				if(auxKey == this.current){
-					this.actions.add(new Action("rotate"));
+				if(!this.toExplore.isEmpty()){
+					auxKey = this.toExplore.peek();
+					
+					// Evitar elegir el mismo camino en el que esta mirando
+					
+					// Si el ultimo pendiente es el mismo en donde esta ubicado
+					if(auxKey == this.current){
+						this.actions.addFirst(new Action("rotate"));
+					}else{
+					// Si no es el mismo, debo guardar la posicion actual para 
+					// volver mas tarde
+						this.status = this.CHANGING_SPACE;
+						this.toExplore.pop();
+						this.toExplore.push(this.current);
+						this.toExplore.push(auxKey);
+						this.buildPath(this.current, auxKey);
+					}
 				}else{
-				// Si no es el mismo, debo guardar la posicion actual para 
-				// volver mas tarde
-					this.status = this.CHANGING_SPACE;
-					this.toExplore.pop();
-					this.toExplore.push(this.current);
-					this.toExplore.push(auxKey);
-					this.buildPath(this.current, auxKey);
+					this.actions.addFirst(new Action("no_op")); 
 				}
+				
 				
 			// Si estaba cambiando de espacio
 			}else if(this.status == this.CHANGING_SPACE){
-				this.actions.clear();
 				this.giveWayActions();
 				this.status = this.GIVE_WAY;
 			}
 		}
 	}
-// ---------------------------------------------------------------------------------------------------
 	
 
 	
@@ -362,12 +346,10 @@ public class UNfailAgentProgram implements AgentProgram {
 		walls[Direction.E] = (boolean) p.getAttribute("right");
 		walls[Direction.S] = (boolean) p.getAttribute("back");
 		boolean afront = (boolean) p.getAttribute("afront");
+//		boolean afront = false;
 		boolean resource = (boolean) p.getAttribute("resource");
-		boolean treasure = (boolean) p.getAttribute("treausure");
-		int energy_level = (int) p.getAttribute("energy_level");
-		
-		
-		
+		boolean treasure = (boolean) p.getAttribute("treasure");
+		int energy_level = (int) p.getAttribute("energy_level");		
 		
 		// Verificar que se llegó al tesoro
 		if(treasure){
@@ -394,31 +376,33 @@ public class UNfailAgentProgram implements AgentProgram {
 			}
 			
 			// Comer si no tiene la energia al maximo, no conoce el espacio o es un espacio de mala comida
-			if(resource && this.currentEnergy < 40 && !this.badFoodSpace.contains(this.current)){
-				
-				// Probar la comida
-				this.actions.addFirst(new Action("eat"));
-				
-				// Si hay un cambio bueno despues de comer				
-				if(this.lastEnergy < this.currentEnergy){
-					recharge = (int) Math.ceil((40 - this.currentEnergy)/10);
-					recharge--;
-					while(recharge > 0){
-						this.actions.addFirst(new Action("eat"));
-						recharge--;
-					}
-					
-					//Agrega el espacio de comida buena si no esta en la lista
-					if(!this.foodSpace.contains(this.current)){
-						this.foodSpace.add(this.current);
+			if(resource){
+				if(this.hasEaten){
+					// Si hay un cambio bueno despues de comer				
+					if(this.lastEnergy < this.currentEnergy){
+						recharge = (int) Math.ceil((double)(40 - this.currentEnergy)/10.0);
+						while(recharge > 0){
+							this.actions.addFirst(new Action("eat"));
+							recharge--;
+						}
+						
+						//Agrega el espacio de comida buena si no esta en la lista
+						if(!this.foodSpace.contains(this.current)){
+							this.foodSpace.add(this.current);
+						}
+					}else if(this.lastEnergy > this.currentEnergy) {
+										
+						//Si hubo un cambio malo despues de comer
+						if(!this.badFoodSpace.contains(this.current)){
+							this.badFoodSpace.add(this.current);
+						}
 					}
 				}else {
-					
-					//Si hubo un cambio malo despues de comer
+					// Probar la comida
 					if(!this.badFoodSpace.contains(this.current)){
-						this.badFoodSpace.add(this.current);
+						this.actions.addFirst(new Action("eat"));
 					}
-				}
+				}			
 			}
 			
 			// Preparar siguientes acciones
@@ -427,6 +411,9 @@ public class UNfailAgentProgram implements AgentProgram {
 				
 				// Si hay un agente en frente
 				if(afront){
+					if(this.actions.isEmpty()){
+						this.exploreActions();
+					}
 					this.changeActions();
 				}else{
 					
@@ -480,7 +467,7 @@ public class UNfailAgentProgram implements AgentProgram {
 				}else{
 					
 					if(this.actions.isEmpty()){
-						this.buildPath(this.current, this.toExplore.peek());
+						this.buildPath(this.current, this.toExplore.peek());  //PILAS FUE AQUI
 						this.status = this.CHANGING_SPACE;
 					}
 				}
@@ -498,6 +485,8 @@ public class UNfailAgentProgram implements AgentProgram {
 				if(this.wait < this.MAX_WAIT){
 					this.wait = this.MAX_WAIT;
 				}
+				this.lastEnergy = this.currentEnergy;
+				this.hasEaten = false;
 				break;
 			
 			case "rotate":
@@ -506,6 +495,7 @@ public class UNfailAgentProgram implements AgentProgram {
 					this.wait = this.MAX_WAIT;
 				}
 				this.direction++;
+				this.hasEaten = false;
 				this.direction %= 4;
 				break;
 			
@@ -514,6 +504,7 @@ public class UNfailAgentProgram implements AgentProgram {
 					this.wait = this.MAX_WAIT;
 				}
 				this.next = this.current;
+				this.hasEaten = true;
 				this.lastEnergy = this.currentEnergy;
 				break;
 			
