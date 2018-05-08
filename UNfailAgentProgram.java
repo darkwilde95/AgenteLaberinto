@@ -20,7 +20,7 @@ public class UNfailAgentProgram implements AgentProgram {
 	private final int CHANGING_SPACE = 3;
 	private final int MAX_WAIT = 4;
 		
-	private int direction, currentEnergy, lastEnergy, status, wait,ID;
+	private int direction, currentEnergy, lastEnergy, status, wait;
 	private boolean hasEaten;
 	private long current, next; 
 	private AStarSearch router;
@@ -30,9 +30,10 @@ public class UNfailAgentProgram implements AgentProgram {
 	private HashSet<Long> badFoodSpace;
 	private HashMap<Long, MapNode> map;
 	private SimpleLanguage language;
+	private String ID;
 	
-	public UNfailAgentProgram(int ID, SimpleLanguage language) {
-		this.ID = ID;
+	public UNfailAgentProgram(SimpleLanguage language) {
+		this.ID = "UNfail";
 		this.language = language;
 		this.wait = this.MAX_WAIT;
 		this.direction = 0;
@@ -219,12 +220,12 @@ public class UNfailAgentProgram implements AgentProgram {
 			}else{
 				
 				// Se verifica que se revisaron todos los caminos
-				System.out.println("Recorrí todo! (x) :3");
+				System.out.println(this.ID + ": Recorri todo! :3");
 			}
 		}else{
 			
 			// No habian caminos pendientes por revisar
-			System.out.println("Recorrí todo! (" + this.ID + ") :3");
+			System.out.println(this.ID + ": Recorri todo! :3");
 		}
 	}
 	
@@ -257,7 +258,7 @@ public class UNfailAgentProgram implements AgentProgram {
 				}
 			}
 			
-			// Minimo de energia para llegar al punto mas cercano
+			// Minimo de energia para llegar al punto mas cercano. Agregando 3 fails que consumen energia
 			if ((this.currentEnergy - minPath) == 3){
 				
 				this.actions.clear();
@@ -266,6 +267,12 @@ public class UNfailAgentProgram implements AgentProgram {
 				}
 				this.buildPath(foodPath);
 				this.status = this.HUNGRY;
+			
+			// Ya no va a llegar a un punto de comida
+			}else if((this.currentEnergy - minPath) < 0){
+				System.out.println(this.ID + ": Para que existo?, mejor me muero :v");
+				this.actions.clear();
+				this.actions.add(new Action("die"));
 			}
 		}else{
 			System.out.println(this.ID + ": No tengo donde comer ramen :v");
@@ -292,7 +299,6 @@ public class UNfailAgentProgram implements AgentProgram {
 	}
 	
 	private void changeActions(){
-		
 		
 		long auxKey = 0;
 		
@@ -346,7 +352,6 @@ public class UNfailAgentProgram implements AgentProgram {
 		
 		int recharge = 0;
 		MapNode aux = null;
-		boolean repeat = false;
 		boolean fail = (boolean) p.getAttribute("fail");
 		boolean[] walls = new boolean[4];
 		walls[Direction.N] = (boolean) p.getAttribute("front");
@@ -360,8 +365,6 @@ public class UNfailAgentProgram implements AgentProgram {
 		
 		if(energy_level == 0){
 			System.out.println(this.ID + ": Comi veneno y mori O:)");
-		}else{
-			System.out.println(this.ID + ": energy level: " + energy_level);
 		}
 		
 		// Verificar que se llegó al tesoro
@@ -375,10 +378,8 @@ public class UNfailAgentProgram implements AgentProgram {
 		if(fail){	
 						
 			if (this.status == this.HUNGRY){
-				//this.actions.addFirst(new Action("no_op"));
 				this.actions.addFirst(new Action("advance"));
 			}else{
-				//this.actions.addFirst(new Action("advance"));
 				this.changeActions();
 			}
 			
@@ -578,7 +579,7 @@ public class UNfailAgentProgram implements AgentProgram {
 	}
 
 	public static void main(String[] Args){
-		new UNfailAgentProgram(3, null);
+		new UNfailAgentProgram(null);
 	}
 	
 }
