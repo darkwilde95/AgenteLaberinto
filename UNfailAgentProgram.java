@@ -7,6 +7,7 @@ import java.util.Stack;
 import javax.swing.text.AbstractDocument.LeafElement;
 
 import unalcol.agents.*;
+import unalcol.agents.simulate.util.SimpleLanguage;
 
 //TODO 470: Arreglar el Empty Stack en toExplore
 
@@ -28,9 +29,11 @@ public class UNfailAgentProgram implements AgentProgram {
 	private HashSet<Long> foodSpace;
 	private HashSet<Long> badFoodSpace;
 	private HashMap<Long, MapNode> map;
+	private SimpleLanguage language;
 	
-	public UNfailAgentProgram(int ID) {
+	public UNfailAgentProgram(int ID, SimpleLanguage language) {
 		this.ID = ID;
+		this.language = language;
 		this.wait = this.MAX_WAIT;
 		this.direction = 0;
 		this.lastEnergy = 20;
@@ -110,11 +113,14 @@ public class UNfailAgentProgram implements AgentProgram {
 	}
 	
 	private void buildPath(long orig, long dest){
-		
 		Stack<Long> path = this.router.search(orig, dest, this.map);
 		int auxDirection = this.direction;
-		long auxKeyCurrent = path.pop(), auxKeyNext = 0L;
-		MapNode auxSpace = null;		
+		long auxKeyCurrent = 0L, auxKeyNext = 0L;
+		MapNode auxSpace = null;
+		
+		if(!path.isEmpty()){
+			auxKeyCurrent = path.pop();								
+		}
 		
 		while(!path.isEmpty()){
 			
@@ -252,7 +258,7 @@ public class UNfailAgentProgram implements AgentProgram {
 			}
 			
 			// Minimo de energia para llegar al punto mas cercano
-			if ((this.currentEnergy - minPath) == 0){
+			if ((this.currentEnergy - minPath) == 3){
 				
 				this.actions.clear();
 				if(this.status == this.EXPLORING){
@@ -261,7 +267,9 @@ public class UNfailAgentProgram implements AgentProgram {
 				this.buildPath(foodPath);
 				this.status = this.HUNGRY;
 			}
-		}			
+		}else{
+			System.out.println(this.ID + ": No tengo donde comer ramen :v");
+		}
 	}
 	
 	private void giveWayActions(){
@@ -334,7 +342,7 @@ public class UNfailAgentProgram implements AgentProgram {
 
 	
 	@Override
-	public Action compute(Percept p) {	
+	public Action compute(Percept p) {			
 		
 		int recharge = 0;
 		MapNode aux = null;
@@ -346,25 +354,44 @@ public class UNfailAgentProgram implements AgentProgram {
 		walls[Direction.E] = (boolean) p.getAttribute("right");
 		walls[Direction.S] = (boolean) p.getAttribute("back");
 		boolean afront = (boolean) p.getAttribute("afront");
-//		boolean afront = false;
 		boolean resource = (boolean) p.getAttribute("resource");
 		boolean treasure = (boolean) p.getAttribute("treasure");
 		int energy_level = (int) p.getAttribute("energy_level");		
+		
+		if(energy_level == 0){
+			System.out.println(this.ID + ": Comi veneno y mori O:)");
+		}else{
+			System.out.println(this.ID + ": energy level: " + energy_level);
+		}
 		
 		// Verificar que se llegó al tesoro
 		if(treasure){
 			return new Action("no_op");
 		}
 		
+		this.currentEnergy = energy_level;
+		
 		// Verificar el movimiento
-		if(fail){
-			this.actions.addFirst(new Action("advance"));
+		if(fail){	
+						
+			if (this.status == this.HUNGRY){
+				//this.actions.addFirst(new Action("no_op"));
+				this.actions.addFirst(new Action("advance"));
+			}else{
+				//this.actions.addFirst(new Action("advance"));
+				this.changeActions();
+			}
+			
+			// Verificar energia
+			if(this.currentEnergy <= 15 && this.status != this.HUNGRY){
+				this.energyActions();
+			}
+					
 		}else{
 			
 			// Actualizar la posicion
 			this.current = this.next;
-			this.currentEnergy = energy_level;
-			
+						
 			// Dibujar el mapa
 			if(!this.map.containsKey(this.current)){
 				this.drawMap( walls ); 
@@ -480,8 +507,8 @@ public class UNfailAgentProgram implements AgentProgram {
 		switch(action.getCode()){
 		
 			case "advance":
-				aux = this.map.get(this.current);
-				this.next = aux.children[this.direction];
+				aux = this.map.get(this.current);			
+				this.next = (fail) ? this.current : aux.children[this.direction];
 				if(this.wait < this.MAX_WAIT){
 					this.wait = this.MAX_WAIT;
 				}
@@ -537,7 +564,6 @@ public class UNfailAgentProgram implements AgentProgram {
 		System.out.println("(" + coor[0] + ", " + coor[1] + ")");
 	}
 	
-
 	@Override 
 	public void init() {
 		// TODO Auto-generated method stub
@@ -552,7 +578,7 @@ public class UNfailAgentProgram implements AgentProgram {
 	}
 
 	public static void main(String[] Args){
-		new UNfailAgentProgram(3);
+		new UNfailAgentProgram(3, null);
 	}
 	
 }
